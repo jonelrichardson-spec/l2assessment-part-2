@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Customer Inbox Triage app is a lightweight AI-powered tool that helps classify customer support messages and recommend actions. It uses Groq AI to categorize messages, applies rule-based urgency scoring, and suggests next steps based on predefined templates.
+The Customer Inbox Triage app is a lightweight AI-powered tool that helps classify customer support messages and recommend actions. It uses Google Gemini AI to categorize messages, applies rule-based urgency scoring, and suggests next steps based on predefined templates.
 
 ## Problem Statement
 
@@ -11,7 +11,7 @@ Support teams waste time manually reading and triaging customer messages. This t
 ## Tech Stack
 
 - **Frontend**: React + Vite + Tailwind CSS
-- **AI**: Groq API (Llama 3.3 70B - Free tier)
+- **AI**: Google Gemini API (Gemini 2.0 Flash Experimental)
 - **Runtime**: Browser-based (local development only)
 
 ## Setup Instructions
@@ -20,7 +20,7 @@ Support teams waste time manually reading and triaging customer messages. This t
 
 - Node.js (v16 or higher)
 - npm or yarn
-- Groq API key (FREE - get from https://console.groq.com)
+- Google Gemini API key (FREE - get from https://aistudio.google.com/)
 
 ### Installation
 
@@ -35,21 +35,21 @@ Support teams waste time manually reading and triaging customer messages. This t
    npm install
    ```
 
-3. **Configure Groq API Key**
-   
+3. **Configure Google Gemini API Key**
+
    Create a `.env.local` file in the root directory:
    ```bash
    cp .env.example .env.local
    ```
-   
-   Edit `.env.local` and add your Groq API key:
+
+   Edit `.env.local` and add your Google Gemini API key:
    ```
-   VITE_GROQ_API_KEY=gsk_your-actual-key-here
+   VITE_GEMINI_API_KEY=your-actual-key-here
    ```
-   
-   Get your FREE API key from: https://console.groq.com/keys
-   
-   **Why Groq?** Groq offers a generous free tier with fast inference and no credit card required!
+
+   Get your FREE API key from: https://aistudio.google.com/
+
+   **Why Google Gemini?** Google Gemini offers a generous free tier with fast inference and no credit card required!
 
 4. **Run the application**
    ```bash
@@ -63,7 +63,7 @@ Support teams waste time manually reading and triaging customer messages. This t
 1. **Paste Message**: User pastes a customer support message into the text area
 2. **Analyze**: Click "Analyze Message" to process the input
 3. **Classification**: The app runs three processes in parallel:
-   - **Category Classification** (LLM): Uses Groq AI (Llama 3.3 70B) to categorize the message
+   - **Category Classification** (LLM): Uses Google Gemini (Gemini 2.0 Flash Experimental) to categorize the message
    - **Urgency Scoring** (Rule-based): Applies simple rules to determine urgency
    - **Recommendation** (Template-based): Maps category to a recommended action
 4. **Display Results**: Shows category, urgency tag, recommended action, and AI reasoning
@@ -106,15 +106,15 @@ The dashboard won't load when I try to access it. I've tried refreshing but it k
 
 ## Security Note
 
-⚠️ **Warning**: This application exposes the Groq API key in the browser (using `dangerouslyAllowBrowser: true`). This is acceptable for local development only but should **NEVER** be done in production. In a real application, API calls should be made from a secure backend server.
+⚠️ **Warning**: This application exposes the Gemini API key in the browser. This is acceptable for local development only but should **NEVER** be done in production. In a real application, API calls should be made from a secure backend server.
 
-## Why Groq?
+## Why Google Gemini?
 
-- ✅ **Completely Free** - No credit card required
-- ✅ **Fast Inference** - Groq's LPU technology is incredibly fast
-- ✅ **Generous Limits** - ~14,400 requests/day on free tier
-- ✅ **High Quality** - Llama 3.3 70B performs excellently
-- ✅ **Easy Signup** - Get started in minutes at https://console.groq.com
+- ✅ **Completely Free** - No credit card required for the free tier
+- ✅ **Fast Inference** - Gemini 2.0 Flash is optimized for speed
+- ✅ **Generous Limits** - 15 requests per minute, 1500 requests per day on free tier
+- ✅ **High Quality** - Gemini 2.0 Flash Experimental performs excellently
+- ✅ **Easy Signup** - Get started in minutes at https://aistudio.google.com/
 
 ## License
 

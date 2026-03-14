@@ -1,57 +1,83 @@
-import Groq from 'groq-sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 /**
  * LLM Helper for categorizing customer support messages
- * Using Groq API for AI-powered categorization
+ * Using Google Gemini API for AI-powered categorization
  */
 
-// Initialize Groq client
-const groq = new Groq({
-  apiKey: import.meta.env.VITE_GROQ_API_KEY,
-  dangerouslyAllowBrowser: true // Required for browser-based calls (not recommended for production!)
-});
+// Initialize Gemini client
+const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 /**
- * Categorize a customer support message using Groq AI
- * 
+ * Categorize a customer support message using Google Gemini AI
+ *
  * @param {string} message - The customer support message
- * @returns {Promise<{category: string, reasoning: string}>}
+ * @returns {Promise<{category: string, urgency: string, reasoning: string}>}
  */
 export async function categorizeMessage(message) {
   try {
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        {
-          role: "user",
-          content: `Categorize this customer support message: ${message}`
-        }
-      ],
-      temperature: 0.7,
+    const systemPrompt = `You are a customer support triage assistant for Relay AI, a subscription-based customer operations platform for small businesses.
+
+Your job is to analyze incoming customer messages and return a JSON object with exactly three fields: category, urgency, and reasoning.
+
+CATEGORY OPTIONS:
+- Billing Issue
+- Technical Problem
+- Feature Request
+- General Inquiry
+
+URGENCY RUBRIC — assign the highest tier that applies. Ignore caps, punctuation, and tone. Judge only on the situation described:
+
+CRITICAL — assign if ANY are true:
+- Account compromised or unauthorized access suspected
+- Data loss or corruption reported
+- System-wide outage affecting the customer
+
+HIGH — assign if ANY are true:
+- Account is locked out or inaccessible
+- Payment failed AND access is blocked
+- Customer cannot use the product at all
+
+MEDIUM — assign if ANY are true:
+- Feature is broken but account is still accessible
+- Billing or payment issue WITHOUT lockout
+- Upgrade or renewal with time pressure mentioned
+
+LOW — assign if none of the above apply:
+- Feature requests
+- General questions or informational inquiries
+- Positive feedback or compliments
+- No active blocking problem
+
+REASONING: Write 1-2 sentences explaining why you assigned this urgency level based on the situation described, not the tone or formatting of the message.
+
+Return ONLY valid JSON. No markdown, no backticks, no preamble. Example:
+{"category": "Billing Issue", "urgency": "HIGH", "reasoning": "The customer's payment failed and they are locked out of their account, which is a complete access block."}`;
+
+    const result = await model.generateContent({
+      contents: [{
+        role: "user",
+        parts: [{ text: `${systemPrompt}\n\nAnalyze this message: ${message}` }]
+      }],
+      generationConfig: {
+        temperature: 0.7
+      }
     });
 
-    const content = response.choices[0].message.content;
-    
-    const lines = content.split('\n');
-    let category = "Unknown";
-    let reasoning = content;
-    
-    if (content.toLowerCase().includes('billing')) {
-      category = "Billing Issue";
-    } else if (content.toLowerCase().includes('technical') || content.toLowerCase().includes('bug')) {
-      category = "Technical Problem";
-    } else if (content.toLowerCase().includes('feature')) {
-      category = "Feature Request";
-    } else if (content.toLowerCase().includes('inquiry') || content.toLowerCase().includes('question')) {
-      category = "General Inquiry";
-    }
-    
+    const content = result.response.text();
+
+    // Parse JSON response
+    const parsed = JSON.parse(content.trim());
+
     return {
-      category,
-      reasoning: content
+      category: parsed.category || "General Inquiry",
+      urgency: parsed.urgency || "LOW",
+      reasoning: parsed.reasoning || content
     };
   } catch (error) {
-    console.warn('Groq API failed, using mock response:', error.message);
+    console.error('Gemini API error details:', error);
+    console.warn('Gemini API failed, using mock response:', error.message);
     return getMockCategorization(message);
   }
 }
@@ -61,7 +87,7 @@ export async function categorizeMessage(message) {
  */
 function getMockCategorization(message) {
   const lowerMessage = message.toLowerCase();
-  
+
   // Array of possible reasoning variations for each category
   const reasoningVariations = {
     billing: [
@@ -94,37 +120,51 @@ function getMockCategorization(message) {
       "This message doesn't contain clear indicators for automatic categorization. Human review recommended.",
     ]
   };
-  
+
   // Helper to get random reasoning
   const getRandomReasoning = (category) => {
     const reasons = reasoningVariations[category];
     return reasons[Math.floor(Math.random() * reasons.length)];
   };
-  
+
   // Billing-related detection
-  if (lowerMessage.includes('bill') || lowerMessage.includes('payment') || 
+  if (lowerMessage.includes('bill') || lowerMessage.includes('payment') ||
       lowerMessage.includes('charge') || lowerMessage.includes('invoice') ||
       lowerMessage.includes('credit card') || lowerMessage.includes('subscription') ||
       lowerMessage.includes('refund') || lowerMessage.includes('cancel') && lowerMessage.includes('account')) {
+
+    // Determine urgency for billing
+    const isLocked = lowerMessage.includes('locked') || lowerMessage.includes('blocked') ||
+                     (lowerMessage.includes('cannot') && lowerMessage.includes('access'));
+    const urgency = isLocked ? "HIGH" : "MEDIUM";
+
     return {
       category: "Billing Issue",
+      urgency: urgency,
       reasoning: getRandomReasoning('billing')
     };
   }
-  
+
   // Technical problem detection
-  if (lowerMessage.includes('bug') || lowerMessage.includes('error') || 
+  if (lowerMessage.includes('bug') || lowerMessage.includes('error') ||
       lowerMessage.includes('broken') || lowerMessage.includes('not working') ||
-      lowerMessage.includes('crash') || lowerMessage.includes('down') || 
+      lowerMessage.includes('crash') || lowerMessage.includes('down') ||
       lowerMessage.includes('server') || lowerMessage.includes('loading') ||
       lowerMessage.includes('slow') || lowerMessage.includes('issue') ||
       lowerMessage.includes('problem') && !lowerMessage.includes('no problem')) {
+
+    // Determine urgency for technical
+    const isBlocking = lowerMessage.includes('cannot') || lowerMessage.includes('unable') ||
+                       lowerMessage.includes('locked out');
+    const urgency = isBlocking ? "HIGH" : "MEDIUM";
+
     return {
       category: "Technical Problem",
+      urgency: urgency,
       reasoning: getRandomReasoning('technical')
     };
   }
-  
+
   // Feature request detection
   if (lowerMessage.includes('feature') || lowerMessage.includes('add') && (lowerMessage.includes('please') || lowerMessage.includes('could')) ||
       lowerMessage.includes('improve') || lowerMessage.includes('would like to see') ||
@@ -133,33 +173,42 @@ function getMockCategorization(message) {
       lowerMessage.includes('enhancement') || lowerMessage.includes('would be great')) {
     return {
       category: "Feature Request",
+      urgency: "LOW",
       reasoning: getRandomReasoning('feature')
     };
   }
-  
+
   // Positive feedback detection
   if ((lowerMessage.includes('thank') || lowerMessage.includes('thanks') || lowerMessage.includes('appreciate')) &&
       !lowerMessage.includes('but') && !lowerMessage.includes('however')) {
     return {
       category: "General Inquiry",
+      urgency: "LOW",
       reasoning: getRandomReasoning('positive')
     };
   }
-  
+
   // Question/inquiry detection
-  if (lowerMessage.includes('how') || lowerMessage.includes('what') || 
+  if (lowerMessage.includes('how') || lowerMessage.includes('what') ||
       lowerMessage.includes('when') || lowerMessage.includes('where') ||
       lowerMessage.includes('can i') || lowerMessage.includes('is there') ||
       lowerMessage.includes('?')) {
+
+    // Check if it's an upgrade request
+    const isUpgrade = lowerMessage.includes('upgrade') || lowerMessage.includes('plan');
+    const urgency = isUpgrade ? "MEDIUM" : "LOW";
+
     return {
       category: "General Inquiry",
+      urgency: urgency,
       reasoning: getRandomReasoning('inquiry')
     };
   }
-  
+
   // Fallback for ambiguous messages
   return {
     category: "General Inquiry",
+    urgency: "LOW",
     reasoning: getRandomReasoning('ambiguous')
   };
 }
